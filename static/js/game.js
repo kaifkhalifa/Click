@@ -1,29 +1,104 @@
 class ClickCounter {
     constructor() {
         this.totalClicks = 0;
-        this.setupEventListeners();
-        this.loadInitialCount();
+        this.username = '';
+        this.leaderboard = [];
+        this.loadInitialData();
+        // We're now handling username editing in the inline script
+        this.setupEventListeners(); // Call immediately instead of waiting for DOMContentLoaded
     }
 
     setupEventListeners() {
+        // Click button event
         const clickButton = document.getElementById('clickButton');
-        clickButton.addEventListener('click', () => {
-            this.handleClick();
-            this.createClickEffect(event);
-        });
+        if (clickButton) {
+            clickButton.addEventListener('click', (event) => {
+                console.log('Click button clicked');
+                this.handleClick();
+                this.createClickEffect(event);
+            });
+        } else {
+            console.error('Click button not found');
+        }
+        
+        // Username editing is now handled in the inline script in index.html
     }
 
-    async loadInitialCount() {
+    async loadInitialData() {
+        try {
+            // Load user data
+            const userResponse = await fetch('/api/user');
+            const userData = await userResponse.json();
+            this.username = userData.username;
+            this.totalClicks = userData.total_clicks;
+            
+            const usernameElement = document.getElementById('username');
+            if (usernameElement) {
+                usernameElement.textContent = this.username;
+            }
+            
+            // Load leaderboard
+            await this.loadLeaderboard();
+            
+            // Update UI
+            this.updateUI();
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+        }
+    }
+    
+    async loadLeaderboard() {
         try {
             const response = await fetch('/api/leaderboard');
-            const data = await response.json();
-            if (data.length > 0) {
-                this.totalClicks = data[0].total_clicks;
-                this.updateUI();
-            }
+            this.leaderboard = await response.json();
+            this.renderLeaderboard();
         } catch (error) {
-            console.error('Error loading initial count:', error);
+            console.error('Error loading leaderboard:', error);
         }
+    }
+    
+    renderLeaderboard() {
+        const leaderboardEl = document.getElementById('leaderboard');
+        if (!leaderboardEl) {
+            console.error('Leaderboard element not found');
+            return;
+        }
+        
+        leaderboardEl.innerHTML = '';
+        
+        this.leaderboard.forEach((entry, index) => {
+            const isCurrentUser = entry.username === this.username;
+            const itemEl = document.createElement('div');
+            itemEl.className = `flex justify-between p-2 rounded leaderboard-item ${isCurrentUser ? 'highlight' : ''}`;
+            
+            // Rank and username
+            const rankEl = document.createElement('div');
+            rankEl.className = 'flex items-center';
+            
+            // Medal for top 3
+            if (index < 3) {
+                const medalColors = ['text-yellow-500', 'text-gray-400', 'text-yellow-700'];
+                const medalSymbols = ['🥇', '🥈', '🥉'];
+                rankEl.innerHTML = `<span class="mr-2 text-lg">${medalSymbols[index]}</span>`;
+            } else {
+                rankEl.innerHTML = `<span class="mr-2 font-medium text-gray-500">${index + 1}.</span>`;
+            }
+            
+            // Username
+            const usernameEl = document.createElement('span');
+            usernameEl.className = `${isCurrentUser ? 'font-medium text-indigo-600' : 'text-gray-700'}`;
+            usernameEl.textContent = entry.username;
+            rankEl.appendChild(usernameEl);
+            
+            // Score
+            const scoreEl = document.createElement('div');
+            scoreEl.className = 'font-medium text-gray-900';
+            scoreEl.textContent = entry.total_clicks.toLocaleString();
+            
+            itemEl.appendChild(rankEl);
+            itemEl.appendChild(scoreEl);
+            leaderboardEl.appendChild(itemEl);
+        });
     }
 
     createClickEffect(event) {
@@ -50,8 +125,11 @@ class ClickCounter {
             animation: ripple 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
         `;
 
-        document.getElementById('clickEffects').appendChild(ripple);
-        setTimeout(() => ripple.remove(), 600);
+        const clickEffects = document.getElementById('clickEffects');
+        if (clickEffects) {
+            clickEffects.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        }
         
         // Create a color burst ring
         const burst = document.createElement('div');
@@ -67,18 +145,24 @@ class ClickCounter {
             animation: burst 0.5s cubic-bezier(0.1, 0.7, 0.4, 1) forwards;
         `;
         
-        document.getElementById('clickEffects').appendChild(burst);
-        setTimeout(() => burst.remove(), 500);
+        if (clickEffects) {
+            clickEffects.appendChild(burst);
+            setTimeout(() => burst.remove(), 500);
+        }
         
         // Add a button animation
         const button = document.getElementById('clickButton');
-        button.classList.add('pulse');
-        setTimeout(() => button.classList.remove('pulse'), 300);
+        if (button) {
+            button.classList.add('pulse');
+            setTimeout(() => button.classList.remove('pulse'), 300);
+        }
         
         // Add a flash effect to the counter
         const counter = document.getElementById('totalClicks');
-        counter.classList.add('flash');
-        setTimeout(() => counter.classList.remove('flash'), 300);
+        if (counter) {
+            counter.classList.add('flash');
+            setTimeout(() => counter.classList.remove('flash'), 300);
+        }
     }
     
     createParticle(x, y, isMilestone = false) {
@@ -105,72 +189,92 @@ class ClickCounter {
             pointer-events: none;
         `;
         
-        document.getElementById('clickEffects').appendChild(particle);
-        
-        // Use requestAnimationFrame for smooth animation
-        let start = null;
-        const duration = isMilestone ? 1200 : 800;
-        
-        function animate(timestamp) {
-            if (!start) start = timestamp;
-            const progress = (timestamp - start) / duration;
+        const clickEffects = document.getElementById('clickEffects');
+        if (clickEffects) {
+            clickEffects.appendChild(particle);
             
-            if (progress < 1) {
-                // Calculate current position
-                const currentX = endX * progress;
-                const currentY = endY * progress;
-                const opacity = 1 - progress;
+            // Use requestAnimationFrame for smooth animation
+            let start = null;
+            const duration = isMilestone ? 1200 : 800;
+            
+            function animate(timestamp) {
+                if (!start) start = timestamp;
+                const progress = (timestamp - start) / duration;
                 
-                particle.style.transform = `translate(${currentX}px, ${currentY}px)`;
-                particle.style.opacity = opacity;
-                
-                requestAnimationFrame(animate);
-            } else {
-                particle.remove();
+                if (progress < 1) {
+                    // Calculate current position
+                    const currentX = endX * progress;
+                    const currentY = endY * progress;
+                    const opacity = 1 - progress;
+                    
+                    particle.style.transform = `translate(${currentX}px, ${currentY}px)`;
+                    particle.style.opacity = opacity;
+                    
+                    requestAnimationFrame(animate);
+                } else {
+                    particle.remove();
+                }
             }
+            
+            requestAnimationFrame(animate);
         }
-        
-        requestAnimationFrame(animate);
     }
 
     async handleClick() {
         try {
+            console.log('Sending click to server');
             const response = await fetch('/api/click', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}) // Send empty body
             });
 
-            if (!response.ok) throw new Error('Click request failed');
+            if (!response.ok) {
+                console.error('Click request failed with status:', response.status);
+                throw new Error('Click request failed');
+            }
 
             const data = await response.json();
+            console.log('Click response:', data);
+            
             this.totalClicks = data.total_clicks;
+            this.leaderboard = data.leaderboard;
+            
             this.updateUI();
+            this.renderLeaderboard();
             this.animateCounter();
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error handling click:', error);
         }
     }
 
     animateCounter() {
         const counter = document.getElementById('totalClicks');
-        counter.style.transform = 'scale(1.1)';
-        setTimeout(() => counter.style.transform = 'scale(1)', 100);
+        if (counter) {
+            counter.style.transform = 'scale(1.1)';
+            setTimeout(() => counter.style.transform = 'scale(1)', 100);
+        }
     }
 
     updateUI() {
-        document.getElementById('totalClicks').textContent = this.totalClicks.toLocaleString();
-        
-        // Add special effects for milestone clicks
-        if (this.totalClicks > 0 && this.totalClicks % 10 === 0) {
-            this.celebrateMilestone();
+        const counter = document.getElementById('totalClicks');
+        if (counter) {
+            counter.textContent = this.totalClicks.toLocaleString();
+            
+            // Add special effects for milestone clicks
+            if (this.totalClicks > 0 && this.totalClicks % 10 === 0) {
+                this.celebrateMilestone();
+            }
         }
     }
     
     celebrateMilestone() {
         // Add a special animation for milestone clicks
         const counter = document.getElementById('totalClicks');
-        counter.classList.add('milestone');
-        setTimeout(() => counter.classList.remove('milestone'), 1000);
+        if (counter) {
+            counter.classList.add('milestone');
+            setTimeout(() => counter.classList.remove('milestone'), 1000);
+        }
         
         // Create a special burst of particles
         const centerX = window.innerWidth / 2;
@@ -232,7 +336,13 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Initialize the counter
-window.addEventListener('DOMContentLoaded', () => {
-    window.counter = new ClickCounter();
+// Initialize the counter immediately
+const counter = new ClickCounter();
+window.counter = counter;
+
+// Also initialize on DOMContentLoaded for safety
+document.addEventListener('DOMContentLoaded', () => {
+    if (!window.counter) {
+        window.counter = new ClickCounter();
+    }
 });
