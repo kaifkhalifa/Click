@@ -1,5 +1,5 @@
 [build]
-  command = "pip install -r requirements.txt && python -m flask --app app run"
+  command = "pip install -r requirements.txt"
   publish = "."
 
 [build.environment]
