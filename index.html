@@ -169,7 +169,8 @@
 
         class ClickCounter {
             constructor() {
-                this.totalClicks = LocalStorage.getItem('totalClicks', 0);
+                // Reset clicks to 0 on each page load
+                this.totalClicks = 0;
                 this.username = LocalStorage.getItem('username', `Player${Math.floor(Math.random() * 9000) + 1000}`);
                 this.leaderboard = LocalStorage.getItem('leaderboard', DEFAULT_LEADERBOARD);
                 
@@ -479,14 +480,16 @@
                 // Increment clicks
                 this.totalClicks++;
                 
-                // Save to local storage
-                LocalStorage.setItem('totalClicks', this.totalClicks);
+                // We don't save totalClicks to localStorage anymore
+                // since we want it to reset on page refresh
                 
                 // Update UI
                 this.updateUI();
                 
-                // Update leaderboard
-                this.updateLeaderboard();
+                // Update leaderboard only when we reach a milestone or at least 5 clicks
+                if (this.totalClicks % 10 === 0 || this.totalClicks === 5) {
+                    this.updateLeaderboard();
+                }
                 
                 // Animate counter
                 this.animateCounter();
@@ -495,18 +498,22 @@
             updateLeaderboard() {
                 // Check if user is already on the leaderboard
                 let userInLeaderboard = false;
+                let userBestScore = 0;
                 
                 for (let i = 0; i < this.leaderboard.length; i++) {
                     if (this.leaderboard[i].username === this.username) {
-                        // Update existing entry
-                        this.leaderboard[i].total_clicks = this.totalClicks;
+                        // Only update if current score is higher than saved score
+                        userBestScore = this.leaderboard[i].total_clicks;
+                        if (this.totalClicks > userBestScore) {
+                            this.leaderboard[i].total_clicks = this.totalClicks;
+                        }
                         userInLeaderboard = true;
                         break;
                     }
                 }
                 
-                if (!userInLeaderboard) {
-                    // Add user to leaderboard
+                if (!userInLeaderboard && this.totalClicks >= 5) {
+                    // Add user to leaderboard only if they have at least 5 clicks
                     this.leaderboard.push({
                         username: this.username,
                         total_clicks: this.totalClicks
