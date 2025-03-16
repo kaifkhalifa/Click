@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Click - The Addictive Clicking Game 🎮
 
 A simple yet addictive browser-based clicker game with real-time leaderboards, upgrades, and competitive gameplay.
@@ -58,3 +59,6 @@ python app.py
 ## Contributing 🤝
 
 Feel free to submit issues and enhancement requests!
+=======
+# Click
+>>>>>>> 9e9c8fd5ffd4e55da112c85ed0eddd343ff6621d
