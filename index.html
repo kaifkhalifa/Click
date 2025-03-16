@@ -4,13 +4,571 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Click Counter</title>
-    <script>
-        // Redirect to the Flask app
-        window.location.href = "/templates/index.html";
-    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .leaderboard-item {
+            transition: all 0.3s ease;
+        }
+        .leaderboard-item.highlight {
+            background-color: rgba(79, 70, 229, 0.1);
+            transform: scale(1.02);
+        }
+        .username-container:hover .edit-icon {
+            opacity: 1;
+        }
+        .edit-icon {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        /* Modal styles */
+        .modal-hidden {
+            display: none !important;
+        }
+        .modal-visible {
+            display: flex !important;
+        }
+        /* Animation styles */
+        @keyframes ripple {
+            from { transform: scale(1); opacity: 0.8; }
+            to { transform: scale(3.5); opacity: 0; }
+        }
+        
+        @keyframes burst {
+            0% { transform: scale(0); opacity: 0.7; }
+            50% { transform: scale(1.2); opacity: 0.5; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        
+        .pulse {
+            animation: pulse 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.92); }
+            75% { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
+        
+        .flash {
+            animation: flash 0.3s ease-out;
+        }
+        
+        @keyframes flash {
+            0% { color: #4F46E5; }
+            100% { color: inherit; }
+        }
+        
+        .milestone {
+            animation: milestone 1s ease-out;
+        }
+        
+        @keyframes milestone {
+            0% { transform: scale(1); color: inherit; }
+            20% { transform: scale(1.2); color: #F59E0B; }
+            40% { transform: scale(1.1); color: #F59E0B; }
+            60% { transform: scale(1.15); color: #F59E0B; }
+            80% { transform: scale(1.1); color: #F59E0B; }
+            100% { transform: scale(1); color: inherit; }
+        }
+    </style>
 </head>
-<body>
-    <h1>Click Counter</h1>
-    <p>Redirecting to the Click Counter app...</p>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <!-- User Info -->
+        <div class="text-center mb-4">
+            <div class="username-container inline-flex items-center cursor-pointer" id="usernameContainer">
+                <div id="username" class="text-lg font-medium text-gray-700">Player</div>
+                <svg class="edit-icon w-4 h-4 ml-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                </svg>
+            </div>
+        </div>
+        
+        <!-- Click Counter -->
+        <div class="text-center mb-8">
+            <div id="totalClicks" class="text-8xl font-light text-gray-800 mb-2 transition-all duration-200">0</div>
+            <div class="text-gray-500 uppercase tracking-wider text-sm">TOTAL CLICKS</div>
+        </div>
+
+        <!-- Click Button -->
+        <button id="clickButton" type="button"
+            class="w-48 h-48 bg-white rounded-full shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none border border-gray-100 relative overflow-hidden mb-12">
+            <span class="text-2xl text-gray-800 font-light relative z-10">Click!</span>
+            <div class="absolute inset-0 bg-gradient-to-br from-transparent to-gray-100 opacity-50"></div>
+        </button>
+        
+        <!-- Leaderboard -->
+        <div class="w-full max-w-md bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-medium text-gray-800 text-center flex-grow">Leaderboard</h2>
+                <div class="flex space-x-2">
+                    <button id="refreshLeaderboard" class="text-indigo-600 hover:text-indigo-800" title="Refresh Leaderboard">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="leaderboard" class="space-y-2">
+                <!-- Leaderboard items will be inserted here by JavaScript -->
+                <div class="animate-pulse flex justify-between p-2 rounded">
+                    <div class="h-4 bg-gray-200 rounded w-1/4"></div>
+                    <div class="h-4 bg-gray-200 rounded w-1/6"></div>
+                </div>
+                <div class="animate-pulse flex justify-between p-2 rounded">
+                    <div class="h-4 bg-gray-200 rounded w-1/3"></div>
+                    <div class="h-4 bg-gray-200 rounded w-1/6"></div>
+                </div>
+                <div class="animate-pulse flex justify-between p-2 rounded">
+                    <div class="h-4 bg-gray-200 rounded w-1/4"></div>
+                    <div class="h-4 bg-gray-200 rounded w-1/6"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Username Edit Modal -->
+    <div id="usernameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-medium text-gray-800 mb-4">Edit Username</h3>
+            <input type="text" id="usernameInput" class="w-full p-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Enter new username">
+            <div class="flex justify-end space-x-2">
+                <button id="cancelUsernameBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors">Cancel</button>
+                <button id="saveUsernameBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Click Effect Container -->
+    <div id="clickEffects" class="fixed inset-0 pointer-events-none"></div>
+
+    <script>
+        // Default leaderboard data
+        const DEFAULT_LEADERBOARD = [
+            {'username': 'ZephyrX', 'total_clicks': 150},
+            {'username': 'InfernoAce', 'total_clicks': 120},
+            {'username': 'TitanShade', 'total_clicks': 100},
+            {'username': 'RuneMaverick', 'total_clicks': 80},
+            {'username': 'LunarStriker', 'total_clicks': 65}
+        ];
+
+        // Client-side storage
+        class LocalStorage {
+            static getItem(key, defaultValue) {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : defaultValue;
+            }
+            
+            static setItem(key, value) {
+                localStorage.setItem(key, JSON.stringify(value));
+            }
+        }
+
+        class ClickCounter {
+            constructor() {
+                this.totalClicks = LocalStorage.getItem('totalClicks', 0);
+                this.username = LocalStorage.getItem('username', `Player${Math.floor(Math.random() * 9000) + 1000}`);
+                this.leaderboard = LocalStorage.getItem('leaderboard', DEFAULT_LEADERBOARD);
+                
+                this.setupEventListeners();
+                this.loadInitialData();
+            }
+
+            setupEventListeners() {
+                // Click button event
+                const clickButton = document.getElementById('clickButton');
+                if (clickButton) {
+                    clickButton.addEventListener('click', (event) => {
+                        console.log('Click button clicked');
+                        this.handleClick();
+                        this.createClickEffect(event);
+                    });
+                } else {
+                    console.error('Click button not found');
+                }
+                
+                // Username container click
+                const usernameContainer = document.getElementById('usernameContainer');
+                if (usernameContainer) {
+                    usernameContainer.addEventListener('click', () => {
+                        this.openUsernameModal();
+                    });
+                }
+                
+                // Username modal events
+                const usernameModal = document.getElementById('usernameModal');
+                const usernameInput = document.getElementById('usernameInput');
+                const saveUsernameBtn = document.getElementById('saveUsernameBtn');
+                const cancelUsernameBtn = document.getElementById('cancelUsernameBtn');
+                
+                if (saveUsernameBtn) {
+                    saveUsernameBtn.addEventListener('click', () => {
+                        this.saveUsername();
+                    });
+                }
+                
+                if (cancelUsernameBtn) {
+                    cancelUsernameBtn.addEventListener('click', () => {
+                        this.closeUsernameModal();
+                    });
+                }
+                
+                if (usernameModal) {
+                    usernameModal.addEventListener('click', (event) => {
+                        if (event.target === usernameModal) {
+                            this.closeUsernameModal();
+                        }
+                    });
+                }
+                
+                if (usernameInput) {
+                    usernameInput.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter') {
+                            this.saveUsername();
+                        } else if (event.key === 'Escape') {
+                            this.closeUsernameModal();
+                        }
+                    });
+                }
+                
+                // Refresh leaderboard button
+                const refreshLeaderboardBtn = document.getElementById('refreshLeaderboard');
+                if (refreshLeaderboardBtn) {
+                    refreshLeaderboardBtn.addEventListener('click', () => {
+                        this.renderLeaderboard();
+                    });
+                }
+            }
+
+            loadInitialData() {
+                // Set username in UI
+                const usernameElement = document.getElementById('username');
+                if (usernameElement) {
+                    usernameElement.textContent = this.username;
+                }
+                
+                // Update UI with current clicks
+                this.updateUI();
+                
+                // Render leaderboard
+                this.renderLeaderboard();
+            }
+            
+            openUsernameModal() {
+                const usernameModal = document.getElementById('usernameModal');
+                const usernameInput = document.getElementById('usernameInput');
+                
+                if (usernameModal && usernameInput) {
+                    usernameInput.value = this.username;
+                    usernameModal.classList.remove('modal-hidden');
+                    usernameModal.classList.add('modal-visible');
+                    usernameInput.focus();
+                }
+            }
+            
+            closeUsernameModal() {
+                const usernameModal = document.getElementById('usernameModal');
+                
+                if (usernameModal) {
+                    usernameModal.classList.remove('modal-visible');
+                    usernameModal.classList.add('modal-hidden');
+                }
+            }
+            
+            saveUsername() {
+                const usernameInput = document.getElementById('usernameInput');
+                
+                if (usernameInput) {
+                    const newUsername = usernameInput.value.trim();
+                    if (newUsername) {
+                        const oldUsername = this.username;
+                        this.username = newUsername;
+                        
+                        // Update username in UI
+                        const usernameElement = document.getElementById('username');
+                        if (usernameElement) {
+                            usernameElement.textContent = this.username;
+                        }
+                        
+                        // Update username in leaderboard
+                        this.leaderboard.forEach(entry => {
+                            if (entry.username === oldUsername) {
+                                entry.username = newUsername;
+                            }
+                        });
+                        
+                        // Save to local storage
+                        LocalStorage.setItem('username', this.username);
+                        LocalStorage.setItem('leaderboard', this.leaderboard);
+                        
+                        // Update leaderboard UI
+                        this.renderLeaderboard();
+                    }
+                    
+                    this.closeUsernameModal();
+                }
+            }
+            
+            renderLeaderboard() {
+                const leaderboardEl = document.getElementById('leaderboard');
+                if (!leaderboardEl) {
+                    console.error('Leaderboard element not found');
+                    return;
+                }
+                
+                leaderboardEl.innerHTML = '';
+                
+                this.leaderboard.forEach((entry, index) => {
+                    const isCurrentUser = entry.username === this.username;
+                    const itemEl = document.createElement('div');
+                    itemEl.className = `flex justify-between p-2 rounded leaderboard-item ${isCurrentUser ? 'highlight' : ''}`;
+                    
+                    // Rank and username
+                    const rankEl = document.createElement('div');
+                    rankEl.className = 'flex items-center';
+                    
+                    // Medal for top 3
+                    if (index < 3) {
+                        const medalColors = ['text-yellow-500', 'text-gray-400', 'text-yellow-700'];
+                        const medalSymbols = ['🥇', '🥈', '🥉'];
+                        rankEl.innerHTML = `<span class="mr-2 text-lg">${medalSymbols[index]}</span>`;
+                    } else {
+                        rankEl.innerHTML = `<span class="mr-2 font-medium text-gray-500">${index + 1}.</span>`;
+                    }
+                    
+                    // Username
+                    const usernameEl = document.createElement('span');
+                    usernameEl.className = `${isCurrentUser ? 'font-medium text-indigo-600' : 'text-gray-700'}`;
+                    usernameEl.textContent = entry.username;
+                    rankEl.appendChild(usernameEl);
+                    
+                    // Score
+                    const scoreEl = document.createElement('div');
+                    scoreEl.className = 'font-medium text-gray-900';
+                    scoreEl.textContent = entry.total_clicks.toLocaleString();
+                    
+                    itemEl.appendChild(rankEl);
+                    itemEl.appendChild(scoreEl);
+                    leaderboardEl.appendChild(itemEl);
+                });
+            }
+
+            createClickEffect(event) {
+                // Create a color burst effect with multiple particles
+                for (let i = 0; i < 12; i++) {
+                    this.createParticle(event.clientX, event.clientY);
+                }
+                
+                // Create a ripple effect
+                const ripple = document.createElement('div');
+                const rippleSize = 20;
+                const x = event.clientX - rippleSize / 2;
+                const y = event.clientY - rippleSize / 2;
+
+                ripple.style.cssText = `
+                    position: fixed;
+                    left: ${x}px;
+                    top: ${y}px;
+                    width: ${rippleSize}px;
+                    height: ${rippleSize}px;
+                    background: rgba(0, 0, 0, 0.1);
+                    border-radius: 50%;
+                    pointer-events: none;
+                    animation: ripple 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+                `;
+
+                const clickEffects = document.getElementById('clickEffects');
+                if (clickEffects) {
+                    clickEffects.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                }
+                
+                // Create a color burst ring
+                const burst = document.createElement('div');
+                burst.style.cssText = `
+                    position: fixed;
+                    left: ${event.clientX - 50}px;
+                    top: ${event.clientY - 50}px;
+                    width: 100px;
+                    height: 100px;
+                    border: 2px solid rgba(255, 255, 255, 0.7);
+                    border-radius: 50%;
+                    pointer-events: none;
+                    animation: burst 0.5s cubic-bezier(0.1, 0.7, 0.4, 1) forwards;
+                `;
+                
+                if (clickEffects) {
+                    clickEffects.appendChild(burst);
+                    setTimeout(() => burst.remove(), 500);
+                }
+                
+                // Add a button animation
+                const button = document.getElementById('clickButton');
+                if (button) {
+                    button.classList.add('pulse');
+                    setTimeout(() => button.classList.remove('pulse'), 300);
+                }
+                
+                // Add a flash effect to the counter
+                const counter = document.getElementById('totalClicks');
+                if (counter) {
+                    counter.classList.add('flash');
+                    setTimeout(() => counter.classList.remove('flash'), 300);
+                }
+            }
+            
+            createParticle(x, y, isMilestone = false) {
+                const particle = document.createElement('div');
+                // For milestone particles, make them larger and more colorful
+                const size = isMilestone ? Math.random() * 15 + 10 : Math.random() * 8 + 4;
+                const angle = Math.random() * Math.PI * 2; // Random angle in radians
+                const speed = isMilestone ? Math.random() * 100 + 50 : Math.random() * 60 + 30;
+                const hue = isMilestone ? Math.floor(Math.random() * 60) + 40 : Math.floor(Math.random() * 360); // Gold-ish for milestones
+                
+                // Calculate the final position using the angle and speed
+                const endX = Math.cos(angle) * speed;
+                const endY = Math.sin(angle) * speed;
+                
+                particle.className = 'particle';
+                particle.style.cssText = `
+                    position: fixed;
+                    left: ${x - size / 2}px;
+                    top: ${y - size / 2}px;
+                    width: ${size}px;
+                    height: ${size}px;
+                    background: hsla(${hue}, 100%, 60%, 0.8);
+                    border-radius: 50%;
+                    pointer-events: none;
+                `;
+                
+                const clickEffects = document.getElementById('clickEffects');
+                if (clickEffects) {
+                    clickEffects.appendChild(particle);
+                    
+                    // Use requestAnimationFrame for smooth animation
+                    let start = null;
+                    const duration = isMilestone ? 1200 : 800;
+                    
+                    function animate(timestamp) {
+                        if (!start) start = timestamp;
+                        const progress = (timestamp - start) / duration;
+                        
+                        if (progress < 1) {
+                            // Calculate current position
+                            const currentX = endX * progress;
+                            const currentY = endY * progress;
+                            const opacity = 1 - progress;
+                            
+                            particle.style.transform = `translate(${currentX}px, ${currentY}px)`;
+                            particle.style.opacity = opacity;
+                            
+                            requestAnimationFrame(animate);
+                        } else {
+                            particle.remove();
+                        }
+                    }
+                    
+                    requestAnimationFrame(animate);
+                }
+            }
+
+            handleClick() {
+                // Increment clicks
+                this.totalClicks++;
+                
+                // Save to local storage
+                LocalStorage.setItem('totalClicks', this.totalClicks);
+                
+                // Update UI
+                this.updateUI();
+                
+                // Update leaderboard
+                this.updateLeaderboard();
+                
+                // Animate counter
+                this.animateCounter();
+            }
+
+            updateLeaderboard() {
+                // Check if user is already on the leaderboard
+                let userInLeaderboard = false;
+                
+                for (let i = 0; i < this.leaderboard.length; i++) {
+                    if (this.leaderboard[i].username === this.username) {
+                        // Update existing entry
+                        this.leaderboard[i].total_clicks = this.totalClicks;
+                        userInLeaderboard = true;
+                        break;
+                    }
+                }
+                
+                if (!userInLeaderboard) {
+                    // Add user to leaderboard
+                    this.leaderboard.push({
+                        username: this.username,
+                        total_clicks: this.totalClicks
+                    });
+                }
+                
+                // Sort leaderboard by total_clicks (descending)
+                this.leaderboard.sort((a, b) => b.total_clicks - a.total_clicks);
+                
+                // Keep only top 10 entries
+                this.leaderboard = this.leaderboard.slice(0, 10);
+                
+                // Save to local storage
+                LocalStorage.setItem('leaderboard', this.leaderboard);
+                
+                // Update UI
+                this.renderLeaderboard();
+            }
+
+            animateCounter() {
+                const counter = document.getElementById('totalClicks');
+                if (counter) {
+                    counter.style.transform = 'scale(1.1)';
+                    setTimeout(() => counter.style.transform = 'scale(1)', 100);
+                }
+            }
+
+            updateUI() {
+                const counter = document.getElementById('totalClicks');
+                if (counter) {
+                    counter.textContent = this.totalClicks.toLocaleString();
+                    
+                    // Add special effects for milestone clicks
+                    if (this.totalClicks > 0 && this.totalClicks % 10 === 0) {
+                        this.celebrateMilestone();
+                    }
+                }
+            }
+            
+            celebrateMilestone() {
+                // Add a special animation for milestone clicks
+                const counter = document.getElementById('totalClicks');
+                if (counter) {
+                    counter.classList.add('milestone');
+                    setTimeout(() => counter.classList.remove('milestone'), 1000);
+                }
+                
+                // Create a special burst of particles
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                
+                // Create a burst of particles from the center
+                for (let i = 0; i < 20; i++) {
+                    this.createParticle(centerX, centerY, true);
+                }
+            }
+        }
+
+        // Initialize the counter when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.counter = new ClickCounter();
+        });
+    </script>
 </body>
 </html> 
